@@ -3,21 +3,27 @@
 #include <stdexcept>
 #include <array>
 
-namespace lve {
+namespace lve
+{
 
-    FirstApp::FirstApp(){
+    FirstApp::FirstApp()
+    {
+        loadModels();
         createPipelineLayout();
         createPipeline();
         createCommandBuffers();
     }
 
-    FirstApp::~FirstApp(){
+    FirstApp::~FirstApp()
+    {
         vkDestroyPipelineLayout(lveDevice.device(), pipelineLayout, nullptr);
     }
 
-    void FirstApp::run(){
+    void FirstApp::run()
+    {
 
-        while (!lveWindow.shouldClose()){
+        while (!lveWindow.shouldClose())
+        {
             glfwPollEvents();
             drawFrame();
         }
@@ -25,7 +31,17 @@ namespace lve {
         vkDeviceWaitIdle(lveDevice.device());
     }
 
-    void FirstApp::createPipelineLayout(){
+    void FirstApp::loadModels()
+    {
+        std::vector<LveModel::Vertex> vertices{};
+
+        sierpinski(vertices, 5, {{-0.5f, 0.5f}, {1.0f, 0, 0}}, {{0.5f, 0.5f}, {0, 1.0f, 0}}, {{0, -0.5f}, {0, 0, 1.0f}});
+
+        lveModel = std::make_unique<LveModel>(lveDevice, vertices);
+    }
+
+    void FirstApp::createPipelineLayout()
+    {
         VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
         pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
         pipelineLayoutInfo.setLayoutCount = 0;
@@ -33,36 +49,42 @@ namespace lve {
         pipelineLayoutInfo.pushConstantRangeCount = 0;
         pipelineLayoutInfo.pPushConstantRanges = nullptr;
 
-        if (vkCreatePipelineLayout(lveDevice.device(), &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS){
+        if (vkCreatePipelineLayout(lveDevice.device(), &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS)
+        {
             throw std::runtime_error("Failed to create pipeline");
         }
     }
 
-    void FirstApp::createPipeline(){
+    void FirstApp::createPipeline()
+    {
         auto pipelineConfig = LvePipeline::defaultPipeLineConfigInfo(lveSwapchain.width(), lveSwapchain.height());
         pipelineConfig.renderPass = lveSwapchain.getRenderPass();
         pipelineConfig.pipelineLayout = pipelineLayout;
         lvePipeline = std::make_unique<LvePipeline>(lveDevice, "shaders/simple_shader.vert.spv", "shaders/simple_shader.frag.spv", pipelineConfig);
     }
 
-    void FirstApp::createCommandBuffers(){
+    void FirstApp::createCommandBuffers()
+    {
         commandBuffers.resize(lveSwapchain.imageCount());
-        
+
         VkCommandBufferAllocateInfo allocInfo{};
         allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
         allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
         allocInfo.commandPool = lveDevice.getCommandPool();
         allocInfo.commandBufferCount = static_cast<uint32_t>(commandBuffers.size());
 
-        if (vkAllocateCommandBuffers(lveDevice.device(), &allocInfo, commandBuffers.data()) != VK_SUCCESS){
+        if (vkAllocateCommandBuffers(lveDevice.device(), &allocInfo, commandBuffers.data()) != VK_SUCCESS)
+        {
             throw std::runtime_error("Could not allocate command buffers");
         }
 
-        for (int i = 0; i < commandBuffers.size(); i++){
+        for (int i = 0; i < commandBuffers.size(); i++)
+        {
             VkCommandBufferBeginInfo beginInfo{};
             beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
-            if (vkBeginCommandBuffer(commandBuffers[i], &beginInfo) != VK_SUCCESS){
+            if (vkBeginCommandBuffer(commandBuffers[i], &beginInfo) != VK_SUCCESS)
+            {
                 throw std::runtime_error("Failed to begin recording command buffers");
             }
 
@@ -82,26 +104,64 @@ namespace lve {
             vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
             lvePipeline->bind(commandBuffers[i]);
-            vkCmdDraw(commandBuffers[i], 3, 1, 0, 0);
+            lveModel->bind(commandBuffers[i]);
+            lveModel->draw(commandBuffers[i]);
 
             vkCmdEndRenderPass(commandBuffers[i]);
-            if (vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS){
+            if (vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS)
+            {
                 throw std::runtime_error("Failed to record command buffer");
             }
         }
     }
-    void FirstApp::drawFrame(){
+    void FirstApp::drawFrame()
+    {
         uint32_t imageIndex;
         auto result = lveSwapchain.acquireNextImage(&imageIndex);
 
-        if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR){
+        if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
+        {
             throw std::runtime_error("Failed to acquire next swapchain image");
         }
 
         result = lveSwapchain.submitCommandBuffers(&commandBuffers[imageIndex], &imageIndex);
-        if (result != VK_SUCCESS){
+        if (result != VK_SUCCESS)
+        {
             throw std::runtime_error("Failed to present swapchain image");
         }
+    }
 
+    void FirstApp::sierpinski(
+        std::vector<LveModel::Vertex> &vertices,
+        int depth,
+        LveModel::Vertex left,
+        LveModel::Vertex right,
+        LveModel::Vertex top)
+    {
+        if (depth <= 0)
+        {
+            vertices.push_back({top});
+            vertices.push_back({right});
+            vertices.push_back({left});
+        }
+        else
+        {
+            auto leftTopPos = 0.5f * (left.position + top.position);
+            auto rightTopPos = 0.5f * (right.position + top.position);
+            auto leftRightPos = 0.5f * (left.position + right.position);
+
+            auto leftTopColor = 0.5f * (left.color + top.color);
+            auto rightTopColor = 0.5f * (right.color + top.color);
+            auto leftRightColor = 0.5f * (left.color + right.color);
+
+            LveModel::Vertex leftTop = {leftTopPos, leftTopColor};
+            LveModel::Vertex rightTop = {rightTopPos, rightTopColor};
+            LveModel::Vertex leftRight = {leftRightPos, leftRightColor};
+
+
+            sierpinski(vertices, depth - 1, left, leftRight, leftTop);
+            sierpinski(vertices, depth - 1, leftRight, right, rightTop);
+            sierpinski(vertices, depth - 1, leftTop, rightTop, top);
+        }
     }
 }
