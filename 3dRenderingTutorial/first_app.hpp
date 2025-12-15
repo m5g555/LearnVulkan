@@ -1,35 +1,40 @@
 #pragma once
 
-#include "lve_device.hpp"
-#include "lve_window.hpp"
-#include "lve_game_object.hpp"
-#include "lve_renderer.hpp"
-
 #include <memory>
 #include <vector>
 
+#include "lve_device.hpp"
+#include "lve_game_object.hpp"
+#include "lve_renderer.hpp"
+#include "lve_window.hpp"
+
 namespace lve {
-    class FirstApp {
-        public:
-            static constexpr int WIDTH=800;
-            static constexpr int HEIGHT=600;
+class FirstApp {
+   public:
+    static constexpr int WIDTH = 800;
+    static constexpr int HEIGHT = 600;
 
-            FirstApp();
-            ~FirstApp();
-            FirstApp(const FirstApp &) = delete;
-            FirstApp &operator=(const FirstApp &) = delete;
+    FirstApp();
+    ~FirstApp();
+    FirstApp(const FirstApp&) = delete;
+    FirstApp& operator=(const FirstApp&) = delete;
 
-            void run();
+    void run();
 
+   private:
+    void loadGameObjects();
+    void sierpinski(std::vector<LveModel::Vertex>& vertices,
+                    int depth,
+                    LveModel::Vertex left,
+                    LveModel::Vertex right,
+                    LveModel::Vertex top);
+    std::unique_ptr<LveModel> createCubeModel(LveDevice& device,
+                                              glm::vec3 offset);
 
-        private:
-            void loadGameObjects();
-            void sierpinski(std::vector<LveModel::Vertex> &vertices,int depth,LveModel::Vertex left,LveModel::Vertex right,LveModel::Vertex top);
+    LveWindow lveWindow{WIDTH, HEIGHT, "Hello Vulkan!"};
+    LveDevice lveDevice{lveWindow};
+    LveRenderer lveRenderer{lveWindow, lveDevice};
 
-            LveWindow lveWindow{WIDTH, HEIGHT, "Hello Vulkan!"};
-            LveDevice lveDevice{lveWindow};
-            LveRenderer lveRenderer{lveWindow, lveDevice};
-
-            std::vector<LveGameObject> gameObjects;
-        };
-}
+    std::vector<LveGameObject> gameObjects;
+};
+}  // namespace lve

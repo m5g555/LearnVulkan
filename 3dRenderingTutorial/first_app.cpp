@@ -1,111 +1,136 @@
 #include "first_app.hpp"
 
-#include "simple_render_system.hpp"
-
-#include <stdexcept>
 #include <array>
 #include <cassert>
+#include <stdexcept>
+
+#include "simple_render_system.hpp"
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 #include <glm/gtc/constants.hpp>
 
-namespace lve
-{
+namespace lve {
 
+FirstApp::FirstApp() { loadGameObjects(); }
 
-    FirstApp::FirstApp()
-    {
-        loadGameObjects();
-    }
+FirstApp::~FirstApp() {}
 
-    FirstApp::~FirstApp(){}
+void FirstApp::run() {
+    SimpleRenderSystem simpleRenderSystem{lveDevice,
+                                          lveRenderer.getSwapChainRenderPass()};
 
-    void FirstApp::run()
-    {
-        SimpleRenderSystem simpleRenderSystem{lveDevice, lveRenderer.getSwapChainRenderPass()};
+    while (!lveWindow.shouldClose()) {
+        glfwPollEvents();
 
-
-        while (!lveWindow.shouldClose())
-        {
-            glfwPollEvents();
-
-            if (auto commandBuffer = lveRenderer.beginFrame()) {
-                lveRenderer.beginSwapChainRenderPass(commandBuffer);
-                simpleRenderSystem.renderGameObjects(commandBuffer, gameObjects);
-                lveRenderer.endSwapChainRenderPass(commandBuffer);
-                lveRenderer.endFrame();
-            }
-
-        }
-
-        vkDeviceWaitIdle(lveDevice.device());
-    }
-
-    void FirstApp::loadGameObjects()
-    {
-        std::vector<LveModel::Vertex> vertices{};
-
-        sierpinski(vertices, 1, {{-0.5f, 0.5f}, {1.0f, 0, 0}}, {{0.5f, 0.5f}, {0, 1.0f, 0}}, {{0, -0.5f}, {0, 0, 1.0f}});
-
-        auto lveModel = std::make_shared<LveModel>(lveDevice, vertices);
-
-        // https://www.color-hex.com/color-palette/5361
-        std::vector<glm::vec3> colors{
-            {1.f, .7f, .73f},
-            {1.f, .87f, .73f},
-            {1.f, 1.f, .73f},
-            {.73f, 1.f, .8f},
-            {.73, .88f, 1.f} //
-        };
-        for (auto &color : colors)
-        {
-            color = glm::pow(color, glm::vec3{2.2f});
-        }
-
-        for (int i = 0; i<40; i++){
-            auto triangle = LveGameObject::createGameObject();
-            triangle.model = lveModel;
-            triangle.transform2d.scale = glm::vec2(0.5f) + i*0.025f;
-            triangle.transform2d.rotation = i * 0.025f * glm::pi<float>();
-            triangle.color = colors[i % colors.size()];
-            gameObjects.push_back(std::move(triangle));
+        if (auto commandBuffer = lveRenderer.beginFrame()) {
+            lveRenderer.beginSwapChainRenderPass(commandBuffer);
+            simpleRenderSystem.renderGameObjects(commandBuffer, gameObjects);
+            lveRenderer.endSwapChainRenderPass(commandBuffer);
+            lveRenderer.endFrame();
         }
     }
 
+    vkDeviceWaitIdle(lveDevice.device());
+}
 
+void FirstApp::loadGameObjects() {
+    std::shared_ptr<LveModel> lveModel =
+        createCubeModel(lveDevice, glm::vec3{0});
 
-    void FirstApp::sierpinski(
-        std::vector<LveModel::Vertex> &vertices,
-        int depth,
-        LveModel::Vertex left,
-        LveModel::Vertex right,
-        LveModel::Vertex top)
-    {
-        if (depth <= 0)
-        {
-            vertices.push_back({top});
-            vertices.push_back({right});
-            vertices.push_back({left});
-        }
-        else
-        {
-            auto leftTopPos = 0.5f * (left.position + top.position);
-            auto rightTopPos = 0.5f * (right.position + top.position);
-            auto leftRightPos = 0.5f * (left.position + right.position);
+    auto cube = LveGameObject::createGameObject();
+    cube.model = lveModel;
+    cube.transform.translation = {0.f, 0.f, 0.5f};
+    cube.transform.scale = glm::vec3{0.5f};
+    gameObjects.push_back(std::move(cube));
+}
 
-            auto leftTopColor = 0.5f * (left.color + top.color);
-            auto rightTopColor = 0.5f * (right.color + top.color);
-            auto leftRightColor = 0.5f * (left.color + right.color);
+void FirstApp::sierpinski(std::vector<LveModel::Vertex>& vertices,
+                          int depth,
+                          LveModel::Vertex left,
+                          LveModel::Vertex right,
+                          LveModel::Vertex top) {
+    if (depth <= 0) {
+        vertices.push_back({top});
+        vertices.push_back({right});
+        vertices.push_back({left});
+    } else {
+        auto leftTopPos = 0.5f * (left.position + top.position);
+        auto rightTopPos = 0.5f * (right.position + top.position);
+        auto leftRightPos = 0.5f * (left.position + right.position);
 
-            LveModel::Vertex leftTop = {leftTopPos, leftTopColor};
-            LveModel::Vertex rightTop = {rightTopPos, rightTopColor};
-            LveModel::Vertex leftRight = {leftRightPos, leftRightColor};
+        auto leftTopColor = 0.5f * (left.color + top.color);
+        auto rightTopColor = 0.5f * (right.color + top.color);
+        auto leftRightColor = 0.5f * (left.color + right.color);
 
-            sierpinski(vertices, depth - 1, left, leftRight, leftTop);
-            sierpinski(vertices, depth - 1, leftRight, right, rightTop);
-            sierpinski(vertices, depth - 1, leftTop, rightTop, top);
-        }
+        LveModel::Vertex leftTop = {leftTopPos, leftTopColor};
+        LveModel::Vertex rightTop = {rightTopPos, rightTopColor};
+        LveModel::Vertex leftRight = {leftRightPos, leftRightColor};
+
+        sierpinski(vertices, depth - 1, left, leftRight, leftTop);
+        sierpinski(vertices, depth - 1, leftRight, right, rightTop);
+        sierpinski(vertices, depth - 1, leftTop, rightTop, top);
     }
 }
+
+// temporary helper function, creates a 1x1x1 cube centered at offset
+std::unique_ptr<LveModel> FirstApp::createCubeModel(LveDevice& device,
+                                                    glm::vec3 offset) {
+    std::vector<LveModel::Vertex> vertices{
+
+        // left face (white)
+        {{-.5f, -.5f, -.5f}, {.9f, .9f, .9f}},
+        {{-.5f, .5f, .5f}, {.9f, .9f, .9f}},
+        {{-.5f, -.5f, .5f}, {.9f, .9f, .9f}},
+        {{-.5f, -.5f, -.5f}, {.9f, .9f, .9f}},
+        {{-.5f, .5f, -.5f}, {.9f, .9f, .9f}},
+        {{-.5f, .5f, .5f}, {.9f, .9f, .9f}},
+
+        // right face (yellow)
+        {{.5f, -.5f, -.5f}, {.8f, .8f, .1f}},
+        {{.5f, .5f, .5f}, {.8f, .8f, .1f}},
+        {{.5f, -.5f, .5f}, {.8f, .8f, .1f}},
+        {{.5f, -.5f, -.5f}, {.8f, .8f, .1f}},
+        {{.5f, .5f, -.5f}, {.8f, .8f, .1f}},
+        {{.5f, .5f, .5f}, {.8f, .8f, .1f}},
+
+        // top face (orange, remember y axis points down)
+        {{-.5f, -.5f, -.5f}, {.9f, .6f, .1f}},
+        {{.5f, -.5f, .5f}, {.9f, .6f, .1f}},
+        {{-.5f, -.5f, .5f}, {.9f, .6f, .1f}},
+        {{-.5f, -.5f, -.5f}, {.9f, .6f, .1f}},
+        {{.5f, -.5f, -.5f}, {.9f, .6f, .1f}},
+        {{.5f, -.5f, .5f}, {.9f, .6f, .1f}},
+
+        // bottom face (red)
+        {{-.5f, .5f, -.5f}, {.8f, .1f, .1f}},
+        {{.5f, .5f, .5f}, {.8f, .1f, .1f}},
+        {{-.5f, .5f, .5f}, {.8f, .1f, .1f}},
+        {{-.5f, .5f, -.5f}, {.8f, .1f, .1f}},
+        {{.5f, .5f, -.5f}, {.8f, .1f, .1f}},
+        {{.5f, .5f, .5f}, {.8f, .1f, .1f}},
+
+        // nose face (blue)
+        {{-.5f, -.5f, 0.5f}, {.1f, .1f, .8f}},
+        {{.5f, .5f, 0.5f}, {.1f, .1f, .8f}},
+        {{-.5f, .5f, 0.5f}, {.1f, .1f, .8f}},
+        {{-.5f, -.5f, 0.5f}, {.1f, .1f, .8f}},
+        {{.5f, -.5f, 0.5f}, {.1f, .1f, .8f}},
+        {{.5f, .5f, 0.5f}, {.1f, .1f, .8f}},
+
+        // tail face (green)
+        {{-.5f, -.5f, -0.5f}, {.1f, .8f, .1f}},
+        {{.5f, .5f, -0.5f}, {.1f, .8f, .1f}},
+        {{-.5f, .5f, -0.5f}, {.1f, .8f, .1f}},
+        {{-.5f, -.5f, -0.5f}, {.1f, .8f, .1f}},
+        {{.5f, -.5f, -0.5f}, {.1f, .8f, .1f}},
+        {{.5f, .5f, -0.5f}, {.1f, .8f, .1f}},
+
+    };
+    for (auto& v : vertices) {
+        v.position += offset;
+    }
+    return std::make_unique<LveModel>(device, vertices);
+}
+}  // namespace lve
