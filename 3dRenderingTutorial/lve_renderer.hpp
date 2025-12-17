@@ -20,6 +20,7 @@ class LveRenderer {
     const VkRenderPass getSwapChainRenderPass() {
         return lveSwapchain->getRenderPass();
     };
+    float getAspectRatio() { return lveSwapchain->extentAspectRatio(); }
     const bool isFrameInProgress() { return isFrameStarted; };
 
     const VkCommandBuffer getCurrentCommandBuffer() {
