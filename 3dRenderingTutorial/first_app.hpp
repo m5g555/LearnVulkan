@@ -13,6 +13,7 @@ class FirstApp {
    public:
     static constexpr int WIDTH = 800;
     static constexpr int HEIGHT = 600;
+    static constexpr float MAX_FRAME_TIME = 0.10;
 
     FirstApp();
     ~FirstApp();

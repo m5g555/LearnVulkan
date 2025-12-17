@@ -2,8 +2,10 @@
 
 #include <array>
 #include <cassert>
+#include <chrono>
 #include <stdexcept>
 
+#include "keyboard_movement_controller.hpp"
 #include "lve_camera.hpp"
 #include "simple_render_system.hpp"
 
@@ -24,8 +26,29 @@ void FirstApp::run() {
     LveCamera camera{};
     camera.setViewTarget(glm::vec3{-1.f, -2.f, 2.f}, glm::vec3{0.f, 0.f, 2.5f});
 
+    auto viewerObject = LveGameObject::createGameObject();
+    KeyboardMovementController cameraController{};
+
+    auto currentTime = std::chrono::high_resolution_clock::now();
+
     while (!lveWindow.shouldClose()) {
         glfwPollEvents();
+
+        auto newTime = std::chrono::high_resolution_clock::now();
+
+        float frameTime =
+            std::chrono::duration<float, std::chrono::seconds::period>(
+                newTime - currentTime)
+                .count();
+
+        frameTime = glm::min(frameTime, MAX_FRAME_TIME);
+
+        currentTime = newTime;
+
+        cameraController.moveInPlaneXZ(
+            lveWindow.getGLFWwindow(), frameTime, viewerObject);
+        camera.setViewYXZ(viewerObject.transform.translation,
+                          viewerObject.transform.rotation);
 
         float aspectRatio = lveRenderer.getAspectRatio();
         // camera.setOrthographicProjection(
