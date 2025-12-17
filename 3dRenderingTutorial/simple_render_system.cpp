@@ -80,10 +80,12 @@ void SimpleRenderSystem::renderGameObjects(
 
     lvePipeline->bind(commandBuffer);
 
+    auto projectionView = camera.getProjectionMatrix() * camera.getViewMatrix();
+
     for (auto& obj : gameObjects) {
         SimplePushConstantData push{};
         push.color = obj.color;
-        push.transform = camera.getProjectionMatrix() * obj.transform.mat4();
+        push.transform = projectionView * obj.transform.mat4();
 
         vkCmdPushConstants(
             commandBuffer,
