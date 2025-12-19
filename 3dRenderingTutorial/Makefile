@@ -18,7 +18,7 @@ $(TARGET): *.cpp *.hpp
 
 .PHONY: test clean
 
-test:
+test: a.out
 	./a.out
 
 clean:
