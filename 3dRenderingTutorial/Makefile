@@ -1,3 +1,6 @@
+SRCDIR := src
+LIBDIR := libs
+
 CFLAGS := -std=c++17 -O2
 LDFLAGS := -lglfw -lvulkan -ldl -lpthread -lX11 -lXxf86vm -lXrandr -lXi
 
@@ -9,8 +12,8 @@ fragObjFiles = $(patsubst %.frag, %.frag.spv, $(fragSources))
 
 TARGET = a.out
 $(TARGET): $(vertObjFiles) $(fragObjFiles)
-$(TARGET): *.cpp *.hpp
-	g++ $(CFLAGS) -o $(TARGET) *.cpp $(LDFLAGS)
+$(TARGET): $(SRCDIR)/*.cpp $(SRCDIR)/*.hpp
+	g++ $(CFLAGS) -o $(TARGET) $(SRCDIR)/*.cpp $(LDFLAGS)
 
 # make shader targets
 %.spv: %
